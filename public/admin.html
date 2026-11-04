@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel del Owner</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="logo"><i></i>Panel del Owner</div>
+  <div class="live" id="live"><span class="dot"></span><span id="liveTxt">Desconectado</span> · <b id="n">0</b> conectados</div>
+</header>
+<main style="grid-template-columns:minmax(0,1fr) minmax(0,1fr);max-width:1100px;margin:auto">
+  <section>
+    <div class="card" id="login">
+      <h3>Acceso</h3>
+      <input id="tok" type="password" placeholder="Token de administrador" autocomplete="current-password">
+      <button class="btn" id="enter">Entrar</button>
+      <p class="msg" id="msg"></p>
+    </div>
+    <div class="card" id="ctl" style="display:none">
+      <h3>En el aire</h3>
+      <div id="now" class="msg">Sin emisión</div>
+      <div class="clock" id="clock">0:00</div>
+      <div class="row">
+        <button class="btn" id="pause">Pausar</button>
+        <button class="btn" id="resume">Reanudar</button>
+        <button class="btn" id="b30">-30 s</button>
+        <button class="btn" id="f30">+30 s</button>
+        <button class="btn" id="stop">Detener</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <input id="to" placeholder="Ir al minuto (ej. 12:30)" style="width:190px;margin:0">
+        <button class="btn" id="go">Ir</button>
+      </div>
+    </div>
+    <div class="card" id="chc" style="display:none">
+      <h3>Canal de Twitch (radio)</h3>
+      <div class="row"><input id="ch" placeholder="nombre del canal" style="flex:1;margin:0"><button class="btn" id="setch">Aplicar</button></div>
+    </div>
+  </section>
+  <section>
+    <div class="card" id="epc" style="display:none">
+      <h3>Capítulos</h3>
+      <input id="t" placeholder="Título (ej. Capítulo 1)">
+      <input id="u" placeholder="YouTube, Google Drive o archivo .mp4 / .webm">
+      <button class="btn" id="add">Agregar capítulo</button>
+      <div id="list" style="margin-top:12px"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+let S = null, off = 0, ws, token = sessionStorage.getItem("radio-token") || "";
+const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+const cmd = o => send({ type: "cmd", ...o });
+const pos = () => !S ? 0 : S.status === "playing" ? S.pos + (Date.now() + off - S.t) / 1000 : S.pos;
+const fmt = s => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return (h ? h + ":" + String(m).padStart(2, "0") : m) + ":" + String(x).padStart(2, "0"); };
+const parseT = v => { const p = v.split(":").map(Number).reverse(); return (p[0] || 0) + (p[1] || 0) * 60 + (p[2] || 0) * 3600; };
+
+function show(ok) {
+  ["ctl", "chc", "epc"].forEach(id => $(id).style.display = ok ? "" : "none");
+  $("login").style.display = ok ? "none" : "";
+}
+function render() {
+  if (!S || !S.chapters) return;
+  const box = $("list"); box.innerHTML = "";
+  if (!S.chapters.length) box.innerHTML = '<p class="msg">Agrega tu primer capítulo.</p>';
+  S.chapters.forEach((e, i) => {
+    const d = document.createElement("div"); d.className = "ep";
+    const s = document.createElement("span"); s.textContent = e.title;
+    const p = document.createElement("button"); p.className = "btn"; p.textContent = "Emitir";
+    p.onclick = () => cmd({ action: "load", url: e.url, title: e.title });
+    const x = document.createElement("button"); x.className = "btn"; x.textContent = "Quitar";
+    x.onclick = () => cmd({ action: "remove", index: i });
+    d.append(s, p, x); box.append(d);
+  });
+  if (document.activeElement !== $("ch")) $("ch").value = S.channel || "";
+  $("live").classList.toggle("on", S.status === "playing");
+  $("liveTxt").textContent = S.status === "playing" ? "EN VIVO" : S.status === "paused" ? "En pausa" : "Sin emisión";
+}
+function tick() {
+  if (!S || S.status === "stopped") { $("now").textContent = "Sin emisión"; $("clock").textContent = "0:00"; return; }
+  $("now").textContent = (S.status === "playing" ? "En vivo: " : "Pausado: ") + (S.title || S.url);
+  $("clock").textContent = fmt(pos());
+}
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  const ping = () => ws.readyState === 1 && ws.send(JSON.stringify({ type: "ping", c: Date.now() }));
+  ws.onopen = () => { ping(); ws._i = setInterval(ping, 10000); if (token) send({ type: "auth", token }); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === "pong") off = m.now - (m.c + Date.now()) / 2;
+    if (m.type === "auth") { show(m.ok); $("msg").textContent = m.ok ? "" : "Token incorrecto."; if (m.ok) sessionStorage.setItem("radio-token", token); }
+    if (m.type === "state") { S = m.s; $("n").textContent = m.viewers; render(); }
+  };
+  ws.onclose = () => { clearInterval(ws._i); setTimeout(connect, 2000); };
+}
+$("enter").onclick = () => { token = $("tok").value; send({ type: "auth", token }); };
+$("pause").onclick = () => cmd({ action: "pause" });
+$("resume").onclick = () => cmd({ action: "resume" });
+$("stop").onclick = () => cmd({ action: "stop" });
+$("f30").onclick = () => cmd({ action: "seek", pos: pos() + 30 });
+$("b30").onclick = () => cmd({ action: "seek", pos: pos() - 30 });
+$("go").onclick = () => cmd({ action: "seek", pos: parseT($("to").value) });
+$("setch").onclick = () => cmd({ action: "channel", channel: $("ch").value.trim().replace(/^.*twitch\.tv\//, "") });
+$("add").onclick = () => { const u = $("u").value.trim(); if (!u) return; cmd({ action: "add", title: $("t").value.trim(), url: u }); $("t").value = ""; $("u").value = ""; };
+connect(); setInterval(tick, 500);
+</script>
+</body>
+</html>

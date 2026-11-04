@@ -1,1 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radio en vivo</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="logo"><i></i>Radio</div>
+  <div class="live" id="live"><span class="dot"></span><span id="liveTxt">Sin emisión</span> · <b id="n">0</b> conectados</div>
+</header>
+<main>
+  <section>
+    <div class="stage" id="stage">
+      <div class="cover" id="start">
+        <button class="btn hero" id="go">Empezar la radio</button>
+        <p>Verás lo mismo que el Owner, en el mismo punto, con el audio del canal de Twitch.</p>
+      </div>
+      <div class="cover" id="idle" style="display:none"><p>Sin emisión por ahora. Esta pantalla se activa sola cuando empiece.</p></div>
+    </div>
+    <h2 id="title"></h2>
+  </section>
+  <aside>
+    <div class="card" id="rc">
+      <h3>Radio <span class="eq"><span></span><span></span><span></span><span></span></span></h3>
+      <div class="radio" id="radio"></div>
+      <p class="msg" id="rmsg">Si no hay audio, sube el volumen en el reproductor de Twitch.</p>
+    </div>
+    <div class="card" id="cc">
+      <h3>Chat</h3>
+      <div class="chatbox" id="chat"></div>
+      <p class="msg">Para escribir, inicia sesión con Twitch dentro del chat.</p>
+    </div>
+  </aside>
+</main>
 
+<script>
+const $ = id => document.getElementById(id);
+let S = null, off = 0, started = false, loaded = "", chan = "", P = null, ytReady = false, ws;
+
+const ytId = u => { const m = (u || "").match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/); return m ? m[1] : null; };
+const driveId = u => { const m = (u || "").match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:[^#]*&)?id=)([\w-]+)/); return m ? m[1] : null; };
+const mediaUrl = u => { const d = driveId(u); return d ? "https://drive.usercontent.google.com/download?id=" + d + "&export=download&confirm=t" : u; };
+const target = () => !S || S.status === "stopped" ? null : Math.max(0, S.status === "playing" ? S.pos + (Date.now() + off - S.t) / 1000 : S.pos);
+
+function loadYT(cb) {
+  if (ytReady) return cb();
+  window.onYouTubeIframeAPIReady = () => { ytReady = true; cb(); };
+  const s = document.createElement("script"); s.src = "https://www.youtube.com/iframe_api"; document.head.append(s);
+}
+function clearStage() {
+  if (P && P.destroy) P.destroy();
+  P = null; loaded = "";
+  $("stage").querySelectorAll("iframe,video,#yt").forEach(n => n.remove());
+}
+function openMedia(url) {
+  clearStage(); loaded = url;
+  const id = ytId(url);
+  if (id) {
+    const d = document.createElement("div"); d.id = "yt"; $("stage").append(d);
+    loadYT(() => {
+      if (loaded !== url) return;
+      const pl = new YT.Player("yt", {
+        videoId: id,
+        playerVars: { autoplay: 1, controls: 0, disablekb: 1, rel: 0, playsinline: 1 },
+        events: { onReady: e => { e.target.mute(); P = { destroy: () => pl.destroy(), time: () => pl.getCurrentTime(), seek: t => pl.seekTo(t, true), play: () => pl.playVideo(), pause: () => pl.pauseVideo() }; sync(true); } }
+      });
+    });
+  } else {
+    const v = document.createElement("video");
+    v.src = mediaUrl(url); v.muted = true; v.playsInline = true; $("stage").append(v);
+    P = { destroy: () => v.remove(), time: () => v.currentTime, seek: t => { v.currentTime = t; }, play: () => v.play().catch(() => {}), pause: () => v.pause() };
+    v.onloadedmetadata = () => sync(true);
+    v.onerror = () => { $("title").textContent = "No se pudo cargar el video."; };
+  }
+}
+function sync(force) {
+  const t = target();
+  if (t === null || !P) return;
+  if (force || Math.abs(P.time() - t) > 2) P.seek(t);
+  S.status === "playing" ? P.play() : P.pause();
+}
+function setTwitch() {
+  const r = $("radio"); r.innerHTML = "";
+  const c = $("chat"); c.innerHTML = "";
+  if (!chan) return;
+  const cf = document.createElement("iframe");
+  cf.src = "https://www.twitch.tv/embed/" + encodeURIComponent(chan) + "/chat?parent=" + encodeURIComponent(location.hostname) + "&darkpopout";
+  c.append(cf);
+  const f = document.createElement("iframe");
+  f.src = "https://player.twitch.tv/?channel=" + encodeURIComponent(chan) + "&parent=" + encodeURIComponent(location.hostname) + "&autoplay=true&muted=false";
+  f.allow = "autoplay; fullscreen"; r.append(f);
+}
+function apply() {
+  if (!S) return;
+  const on = S.status !== "stopped";
+  $("live").classList.toggle("on", S.status === "playing");
+  $("rc").classList.toggle("playing", S.status === "playing");
+  $("liveTxt").textContent = S.status === "playing" ? "EN VIVO" : S.status === "paused" ? "En pausa" : "Sin emisión";
+  if (!started) return;
+  if (S.channel !== chan) { chan = S.channel; setTwitch(); }
+  if (!on) { clearStage(); $("idle").style.display = "flex"; $("title").textContent = ""; return; }
+  $("idle").style.display = "none";
+  $("title").textContent = S.title || "";
+  if (S.url !== loaded) openMedia(S.url); else sync(false);
+}
+
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  const ping = () => ws.readyState === 1 && ws.send(JSON.stringify({ type: "ping", c: Date.now() }));
+  ws.onopen = () => { ping(); ws._i = setInterval(ping, 10000); };
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.type === "pong") off = m.now - (m.c + Date.now()) / 2;
+    if (m.type === "state") { S = m.s; $("n").textContent = m.viewers; apply(); }
+  };
+  ws.onclose = () => { clearInterval(ws._i); setTimeout(connect, 2000); };
+}
+$("go").onclick = () => { started = true; $("start").style.display = "none"; $("idle").style.display = "flex"; apply(); };
+connect();
+</script>
+</body>
+</html>

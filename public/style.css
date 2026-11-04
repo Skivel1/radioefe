@@ -1,0 +1,46 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap");
+:root{--bg:#0a0b14;--bg2:#12142a;--panel:rgba(255,255,255,.05);--line:rgba(255,255,255,.1);--text:#eef0ff;--mute:#9298bd;--acc:#ff4d6d;--glow:#6d5cff}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--text);font:15px/1.5 "Space Grotesk","Trebuchet MS",system-ui,sans-serif;
+ background:radial-gradient(900px 500px at 15% -10%,rgba(109,92,255,.28),transparent 60%),radial-gradient(700px 400px at 100% 0,rgba(255,77,109,.16),transparent 60%),var(--bg)}
+header{display:flex;align-items:center;justify-content:space-between;padding:16px 28px}
+.logo{font-weight:700;font-size:22px;letter-spacing:.02em;display:flex;align-items:center;gap:10px}
+.logo i{width:12px;height:12px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px var(--acc)}
+.live{display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--mute)}
+.live b{color:var(--text)}
+.dot{width:9px;height:9px;border-radius:50%;background:#555}
+.on .dot{background:var(--acc);animation:pulse 1.4s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,77,109,.7)}100%{box-shadow:0 0 0 10px rgba(255,77,109,0)}}
+main{display:grid;grid-template-columns:1fr 400px;gap:22px;padding:6px 28px 28px}
+@media(max-width:1000px){main{grid-template-columns:1fr;padding:6px 16px 20px}header{padding:14px 16px}}
+.stage{position:relative;aspect-ratio:16/9;background:#000;border-radius:18px;overflow:hidden;box-shadow:0 0 0 1px var(--line),0 30px 80px -20px rgba(109,92,255,.55)}
+.stage iframe,.stage video{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.cover{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;background:rgba(10,11,20,.8);backdrop-filter:blur(14px)}
+.cover p{margin:0;color:var(--mute);max-width:440px}
+.btn{font:inherit;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 16px;cursor:pointer;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--acc);background:rgba(255,77,109,.12)}
+.btn:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.btn.hero{background:var(--acc);border-color:var(--acc);font-weight:700;font-size:18px;padding:14px 34px;border-radius:999px;box-shadow:0 10px 40px -8px var(--acc)}
+.btn.hero:hover{background:#ff6b85}
+h2{margin:16px 2px 0;font-size:26px;font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:16px}
+.card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;justify-content:space-between}
+.radio{aspect-ratio:16/9;border-radius:12px;overflow:hidden;background:#000}
+.radio iframe{width:100%;height:100%;border:0}
+.eq{display:flex;gap:3px;align-items:flex-end;height:16px}
+.eq span{width:3px;height:4px;background:var(--acc);border-radius:2px}
+.playing .eq span{animation:eq .9s infinite ease-in-out}
+.eq span:nth-child(2){animation-delay:.2s!important}.eq span:nth-child(3){animation-delay:.4s!important}.eq span:nth-child(4){animation-delay:.1s!important}
+@keyframes eq{0%,100%{height:4px}50%{height:16px}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+.msg{color:var(--mute);font-size:13px;margin:8px 0 0}
+input{width:100%;font:inherit;color:var(--text);background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:4px 0 10px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ep{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}
+.ep span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clock{font-size:44px;font-weight:700;font-variant-numeric:tabular-nums;margin:4px 0 8px}
+.chatbox{height:clamp(380px,calc(100vh - 400px),720px);border-radius:12px;overflow:hidden;background:#000}
+.chatbox iframe{width:100%;height:100%;border:0}
+aside{position:sticky;top:12px;align-self:start}
+@media(max-width:1000px){aside{position:static}.chatbox{height:460px}}
+#cc,#cc *{backdrop-filter:none!important;filter:none!important;opacity:1!important;transform:none!important}
