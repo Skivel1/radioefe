@@ -10,7 +10,10 @@ const PUBLIC = path.join(DIR, "public");
 
 const TOKEN = process.env.ADMIN_TOKEN || "cambia-este-token";
 const PORT = process.env.PORT || 3000;
-const FILE = path.join(DIR, "state.json");
+if (TOKEN === "cambia-este-token") console.warn("AVISO: usando el token por defecto. Define ADMIN_TOKEN antes de publicar.");
+const DATA = process.env.DATA_DIR || DIR;
+fs.mkdirSync(DATA, { recursive: true });
+const FILE = path.join(DATA, "state.json");
 
 let S = { status: "stopped", pos: 0, t: 0, url: "", title: "", channel: "", chapters: [], v: 0 };
 try { S = { ...S, ...JSON.parse(fs.readFileSync(FILE, "utf8")) }; } catch {}

@@ -1,0 +1,15 @@
+services:
+  radio:
+    build: .
+    container_name: radio-en-vivo
+    restart: unless-stopped
+    environment:
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?Define ADMIN_TOKEN en las variables del stack}
+      DATA_DIR: /data
+    ports:
+      - "3000:3000"
+    volumes:
+      - radio-data:/data
+
+volumes:
+  radio-data:
